@@ -4,18 +4,36 @@ from app.vectorstore.pinecone_store import (
 )
 
 from app.retrieval.retriever import retrieve
+
 from app.rag.answer import generate_answer
-from app.config.settings import RETRIEVAL_THRESHOLD
+
+from app.rag.intent import (
+    classify_intent,
+    GREETING,
+    OUT_OF_SCOPE,
+)
 
 
 NOT_FOUND_MESSAGE = (
     "I could not find this information in the provided HR policies."
 )
 
+GREETING_MESSAGE = (
+    "Hi! 👋 How can I help you with our HR policies today?"
+)
+
+OUT_OF_SCOPE_MESSAGE = (
+    "I'm designed to answer questions about HR policies, "
+    "employee benefits, leave, attendance, work from home, "
+    "travel, and related company policies. "
+    "I can't help with general questions outside this scope."
+)
+
 
 def create_rag_pipeline():
     pc = create_pinecone_client()
     index = get_index(pc)
+
     return index
 
 
@@ -24,35 +42,95 @@ def ask(
     top_k_retrieval=5,
     debug=False,
 ):
+    intent = classify_intent(query)
+
+    if debug:
+        print("\n" + "=" * 70)
+        print("1. INTENT GUARD")
+        print("=" * 70)
+        print(f"Query  : {query}")
+        print(f"Intent : {intent}")
+
+    if intent == GREETING:
+        return {
+            "answer": GREETING_MESSAGE,
+            "source": None,
+            "retrieval_score": None,
+            "evidence": None,
+        }
+
+    if intent == OUT_OF_SCOPE:
+        return {
+            "answer": OUT_OF_SCOPE_MESSAGE,
+            "source": None,
+            "retrieval_score": None,
+            "evidence": None,
+        }
+
+
+    # ==========================================================
+    # STEP 2: POLICY QUESTION
+    # ==========================================================
+
+    if debug:
+        print("Decision : POLICY")
+        print("Continuing to Pinecone retrieval.")
+
     index = create_rag_pipeline()
 
-    # Step 1: Pinecone Retrieval
     results = retrieve(
         index,
         query,
         top_k=top_k_retrieval,
     )
 
+    # ==========================================================
+    # STEP 3: PINECONE RETRIEVAL
+    # ==========================================================
+
     if debug:
         print("\n" + "=" * 70)
-        print("1. PINECONE RETRIEVAL")
+        print("2. PINECONE RETRIEVAL")
         print("=" * 70)
-        print(f"Query: {query}")
-        print(f"Retrieved candidates: {len(results.matches)}")
 
-        for i, match in enumerate(results.matches, start=1):
-            metadata = match.get("metadata", {})
+        print(f"Query: {query}")
+        print(
+            f"Retrieved candidates: "
+            f"{len(results.matches)}"
+        )
+
+        for i, match in enumerate(
+            results.matches,
+            start=1,
+        ):
+            metadata = match.get(
+                "metadata",
+                {},
+            )
 
             print(f"\nCandidate {i}")
-            print(f"Source         : {metadata.get('file_name')}")
-            print(f"Pinecone score : {match['score']}")
+
+            print(
+                f"Source         : "
+                f"{metadata.get('file_name')}"
+            )
+
+            print(
+                f"Pinecone score : "
+                f"{match['score']}"
+            )
+
             print(
                 f"Text preview   : "
                 f"{metadata.get('text', '')[:250]}..."
             )
 
-    # Step 2: Check if anything was retrieved
+    # ==========================================================
+    # STEP 4: NO RETRIEVAL RESULTS
+    # ==========================================================
+
     if not results.matches:
+
         if debug:
             print("\nNo retrieval results.")
 
@@ -63,46 +141,29 @@ def ask(
             "evidence": None,
         }
 
-    # Step 3: Retrieval threshold
+    # ==========================================================
+    # STEP 5: PREPARE RETRIEVED CONTEXT
+    # ==========================================================
+
     top_result = results.matches[0]
+
     top_score = top_result["score"]
-
-    if debug:
-        print("\n" + "=" * 70)
-        print("2. RETRIEVAL THRESHOLD CHECK")
-        print("=" * 70)
-        print(f"Top Pinecone score : {top_score}")
-        print(f"Threshold          : {RETRIEVAL_THRESHOLD}")
-
-        if top_score >= RETRIEVAL_THRESHOLD:
-            print("Decision            : PASS")
-        else:
-            print("Decision            : REJECT")
-
-    if top_score < RETRIEVAL_THRESHOLD:
-        return {
-            "answer": NOT_FOUND_MESSAGE,
-            "source": None,
-            "retrieval_score": None,
-            "evidence": None,
-        }
-
-    # Step 4: LLM generation + verification
-    if debug:
-        print("\n" + "=" * 70)
-        print("3. LLM GENERATION + VERIFICATION")
-        print("=" * 70)
-        print("Threshold passed.")
-        print("Sending retrieved context to LLM...")
 
     retrieved_results = []
 
     for match in results.matches:
-        metadata = match.get("metadata", {})
+
+        metadata = match.get(
+            "metadata",
+            {},
+        )
 
         retrieved_results.append(
             {
-                "text": metadata.get("text", ""),
+                "text": metadata.get(
+                    "text",
+                    "",
+                ),
                 "source": metadata.get(
                     "file_name",
                     "unknown",
@@ -111,22 +172,47 @@ def ask(
             }
         )
 
+    # ==========================================================
+    # STEP 6: LLM GENERATION + POLICY VERIFICATION
+    # ==========================================================
+
+    if debug:
+        print("\n" + "=" * 70)
+        print("3. LLM GENERATION + VERIFICATION")
+        print("=" * 70)
+
+        print(
+            "Sending HR policy context to LLM..."
+        )
+
     answer = generate_answer(
         query,
         retrieved_results,
     )
 
-    # Step 5: Final result
+    # ==========================================================
+    # STEP 7: FINAL RESULT
+    # ==========================================================
+
     if debug:
         print("\n" + "=" * 70)
         print("4. FINAL RESULT")
         print("=" * 70)
-        print(f"Source          : {answer['source']}")
+
+        print(
+            f"Source          : "
+            f"{answer['source']}"
+        )
+
         print(
             f"Retrieval score : "
             f"{top_score}"
         )
-        print(f"Answer          : {answer['answer']}")
+
+        print(
+            f"Answer          : "
+            f"{answer['answer']}"
+        )
 
     return {
         "answer": answer["answer"],
