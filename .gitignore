@@ -1,0 +1,14 @@
+# Environment
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local development
+.vscode/
+
+# Local ML models
+models/

@@ -1,0 +1,29 @@
+                    ┌──────────────┐
+                    │   PDF Files  │
+                    └──────┬───────┘
+                           ↓
+                    PyMuPDF Loader
+                           ↓
+                    LlamaIndex Nodes
+                           ↓
+                  Google Embeddings
+                           ↓
+                       Pinecone
+                           ↓
+                    User Question
+                           ↓
+                  Semantic Retrieval
+                           ↓
+                 Retrieval Threshold
+                           ↓
+                      Groq LLM
+                           ↓
+                  Evidence Verification
+                     ↙           ↘
+                SUPPORTED     UNSUPPORTED
+                    ↓              ↓
+                 Answer        Not Found
+                           ↓
+                        FastAPI
+                           ↓
+                     WordPress

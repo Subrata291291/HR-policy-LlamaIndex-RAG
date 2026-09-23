@@ -1,0 +1,48 @@
+# ==============================
+# LlamaIndex Core
+# ==============================
+llama-index-core
+
+# ==============================
+# LlamaIndex LLM Integrations
+# ==============================
+llama-index-llms-openai
+llama-index-llms-openai-like
+llama-index-llms-google-genai
+
+# ==============================
+# Embeddings
+# ==============================
+llama-index-embeddings-google-genai
+
+# ==============================
+# Vector Database
+# ==============================
+pinecone
+
+# ==============================
+# PDF Processing
+# ==============================
+pymupdf
+
+# ==============================
+# Environment Variables
+# ==============================
+python-dotenv
+
+# ==============================
+# API / Backend
+# ==============================
+fastapi
+uvicorn
+
+# ==============================
+# Data / Validation
+# ==============================
+pydantic
+
+# ==============================
+# HTTP
+# ==============================
+httpx
+requests

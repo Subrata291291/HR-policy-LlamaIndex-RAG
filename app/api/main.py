@@ -1,0 +1,56 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+from app.rag.pipeline import ask as run_rag
+
+
+app = FastAPI(
+    title="HR Policy RAG API",
+    version="1.0.0",
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
+class AskRequest(BaseModel):
+    query: str = Field(
+        min_length=1,
+        max_length=1000,
+    )
+
+
+class AskResponse(BaseModel):
+    answer: str
+    source: str | None
+    retrieval_score: float | None
+    evidence: str | None
+
+
+@app.get("/")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "HR Policy RAG API",
+    }
+
+
+@app.post("/ask", response_model=AskResponse)
+def ask_question(request: AskRequest):
+    try:
+        result = run_rag(request.query)
+
+        return result
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing the question.",
+        )
