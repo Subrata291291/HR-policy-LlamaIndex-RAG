@@ -2,7 +2,7 @@ from app.vectorstore.pinecone_store import (
     create_pinecone_client,
     get_index,
 )
-
+import time
 from app.retrieval.retriever import retrieve
 
 from app.rag.answer import generate_answer
@@ -46,11 +46,18 @@ def create_rag_pipeline():
 def ask(
     query,
     session_id,
-    top_k_retrieval=5,
+    top_k_retrieval=3,
     debug=False,
 ):
+    start_time = time.perf_counter()
     history = get_history(session_id)
+    intent_start = time.perf_counter()
+
     intent = classify_intent(query)
+
+    intent_time = (
+        time.perf_counter() - intent_start
+    )
 
     if debug:
         print("\n" + "=" * 70)
@@ -102,9 +109,18 @@ def ask(
 
     index = create_rag_pipeline()
 
-    search_query = rewrite_query(
-        query,
-        history,
+    rewrite_start = time.perf_counter()
+
+    if history:
+        search_query = rewrite_query(
+            query,
+            history,
+        )
+    else:
+        search_query = query
+
+    rewrite_time = (
+        time.perf_counter() - rewrite_start
     )
 
     if debug:
@@ -112,10 +128,21 @@ def ask(
             f"Search query: {search_query}"
         )
 
+
+    retrieval_start = time.perf_counter()
+
     results = retrieve(
         index,
         search_query,
         top_k=top_k_retrieval,
+    )
+
+    retrieval_time = (
+        time.perf_counter() - retrieval_start
+    )
+
+    retrieval_time = (
+        time.perf_counter() - retrieval_start
     )
 
     # ==========================================================
@@ -219,9 +246,15 @@ def ask(
             "Sending HR policy context to LLM..."
         )
 
+    generation_start = time.perf_counter()
+
     answer = generate_answer(
         query,
         retrieved_results,
+    )
+
+    generation_time = (
+        time.perf_counter() - generation_start
     )
 
     # ==========================================================
@@ -259,6 +292,40 @@ def ask(
         "assistant",
         answer["answer"],
     )
+
+    elapsed_time = (
+        time.perf_counter() - start_time
+    )
+
+    if debug:
+        print("\n" + "=" * 70)
+        print("5. PERFORMANCE BREAKDOWN")
+        print("=" * 70)
+
+        print(
+            f"Intent classification : "
+            f"{intent_time:.2f} sec"
+        )
+
+        print(
+            f"Query rewriting      : "
+            f"{rewrite_time:.2f} sec"
+        )
+
+        print(
+            f"Pinecone retrieval    : "
+            f"{retrieval_time:.2f} sec"
+        )
+
+        print(
+            f"Generation + verify   : "
+            f"{generation_time:.2f} sec"
+        )
+
+        print(
+            f"Total pipeline time   : "
+            f"{elapsed_time:.2f} sec"
+        )
 
     return {
         "answer": answer["answer"],

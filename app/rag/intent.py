@@ -6,89 +6,132 @@ POLICY = "POLICY"
 OUT_OF_SCOPE = "OUT_OF_SCOPE"
 
 
+def classify_simple_intent(query: str):
+    text = query.strip().lower()
+
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "thanks",
+        "thank you",
+        "bye",
+        "good morning",
+        "good afternoon",
+        "good evening",
+    }
+
+    if text in greetings:
+        return GREETING
+
+    return None
+
+
+def is_obvious_policy_query(query: str):
+    text = query.strip().lower()
+
+    policy_phrases = {
+        # Leave
+        "annual leave",
+        "paid leave",
+        "sick leave",
+        "casual leave",
+        "leave policy",
+        "leave days",
+        "carry forward",
+        "leave balance",
+
+        # Work from home
+        "work from home",
+        "work from home policy",
+        "wfh",
+        "remote work",
+        "remote working",
+
+        # Benefits
+        "health insurance",
+        "retirement contribution",
+        "retirement contributions",
+        "learning reimbursement",
+        "course reimbursement",
+        "education reimbursement",
+        "internet allowance",
+        "employee benefits",
+        "benefits policy",
+
+        # Attendance
+        "attendance policy",
+        "attendance",
+        "working hours",
+        "work hours",
+        "office hours",
+        "late arrival",
+        "late coming",
+        "early departure",
+
+        # Travel
+        "travel policy",
+        "business travel",
+        "travel reimbursement",
+        "travel expenses",
+        "hotel limit",
+        "hotel expenses",
+        "meal allowance",
+        "travel allowance",
+        "international travel",
+
+        # HR procedures
+        "hr policy",
+        "company policy",
+        "employee policy",
+        "manager approval",
+        "hr portal",
+    }
+
+    for phrase in policy_phrases:
+        if phrase in text:
+            return True
+
+    return False
+
+
 def classify_intent(query: str) -> str:
+
+    # 1. Handle obvious greetings locally
+    simple_intent = classify_simple_intent(query)
+
+    if simple_intent is not None:
+        return simple_intent
+
+    # 2. Handle obvious HR policy questions locally
+    if is_obvious_policy_query(query):
+        return POLICY
+
+    # 3. Use LLM only for ambiguous questions
     llm = create_groq_llm()
 
     prompt = f"""
-You are an intent classifier for an HR Policy Assistant.
+Classify the user's message into exactly ONE category.
 
-The assistant has ONLY three possible intents.
+GREETING:
+hello, hi, hey, good morning, thanks, thank you, bye,
+or simple casual conversation.
 
-==================================================
-1. GREETING
-==================================================
+POLICY:
+company HR policies, leave, benefits, attendance,
+work from home, working hours, travel, allowances,
+or employee procedures.
 
-Use GREETING for simple conversational messages such as:
+OUT_OF_SCOPE:
+anything unrelated to company HR policies.
 
-- hi
-- hello
-- hey
-- good morning
-- good afternoon
-- how are you?
-- thanks
-- thank you
-- bye
-
-These are allowed only for basic conversation.
-
-==================================================
-2. POLICY
-==================================================
-
-Use POLICY when the user is asking about company HR policies,
-rules, benefits, employee procedures, attendance, leave,
-work from home, travel, working hours, allowances, or
-other employment policies.
-
-Examples:
-
-- What is the annual leave entitlement?
-- How many sick leave days are available?
-- Can I work from home?
-- What is the internet allowance?
-- What are the working hours?
-- What is the travel meal allowance?
-- Can unused leave be carried forward?
-
-==================================================
-3. OUT_OF_SCOPE
-==================================================
-
-Use OUT_OF_SCOPE for everything else.
-
-Examples:
-
-- What is Python?
-- What is React?
-- What is AI?
-- Tell me a joke.
-- What is the weather?
-- Who is the Prime Minister?
-- Explain JavaScript.
-- Write a poem.
-- Solve this math problem.
-
-IMPORTANT:
-
-The assistant must NOT answer OUT_OF_SCOPE questions.
-
-==================================================
-
-USER MESSAGE
-==================================================
-
+USER MESSAGE:
 {query}
 
-==================================================
-
-RETURN ONLY ONE OF THESE VALUES:
-
+Return ONLY one of:
 GREETING
 POLICY
 OUT_OF_SCOPE
-
-Do not return anything else.
 """
 
     response = llm.complete(

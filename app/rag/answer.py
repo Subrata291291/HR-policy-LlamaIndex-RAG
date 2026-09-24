@@ -6,14 +6,32 @@ NOT_FOUND_MESSAGE = (
 )
 
 
+MAX_CONTEXT_CHARS = 6000
+
+
 def build_context(retrieved_results):
     contexts = []
 
-    for result in retrieved_results:
-        text = result.get("text", "")
+    total_chars = 0
 
-        if text:
-            contexts.append(text)
+    for result in retrieved_results:
+        text = result.get("text", "").strip()
+
+        if not text:
+            continue
+
+        remaining_chars = (
+            MAX_CONTEXT_CHARS - total_chars
+        )
+
+        if remaining_chars <= 0:
+            break
+
+        text = text[:remaining_chars]
+
+        contexts.append(text)
+
+        total_chars += len(text)
 
     return "\n\n".join(contexts)
 
@@ -22,26 +40,18 @@ def generate_draft_answer(query, context, llm):
     prompt = f"""
 You are an HR Policy Assistant.
 
-Answer the user's question ONLY using facts explicitly
-stated in the HR POLICY CONTEXT.
+Answer ONLY from the HR POLICY CONTEXT below.
 
 Rules:
-
-- Use only the provided HR policy context.
+- Use only explicitly stated policy facts.
 - Do not use outside knowledge.
-- Do not invent company policies.
-- Do not assume information that is not explicitly stated.
-- Do not add common HR practices.
-- Every factual company-policy claim must be supported
-  by the provided context.
-- If the requested information is not available in the
-  context, say exactly:
+- Do not invent or assume company policies.
+- If the answer is not available in the context, say exactly:
 
 {NOT_FOUND_MESSAGE}
 
-- Keep the answer clear, professional, and concise.
-- Do not mention Pinecone, embeddings, retrieval,
-  prompts, or internal system details.
+- Keep the answer concise and professional.
+- Do not mention internal system details.
 
 HR POLICY CONTEXT:
 {context}
@@ -70,16 +80,11 @@ by the HR POLICY CONTEXT.
 Rules:
 
 1. Check every factual claim in the draft answer.
-
 2. A claim is supported only if the same information is
    explicitly present in the HR POLICY CONTEXT.
-
 3. Do not use outside knowledge.
-
 4. Do not infer missing information.
-
 5. Do not assume common HR practices are company policies.
-
 6. If even ONE factual company-policy claim is unsupported,
    return exactly:
 

@@ -61,11 +61,17 @@ def ask_question(request: AskRequest):
         result = run_rag(
             request.query,
             session_id=request.session_id,
+            debug=True,
         )
 
         return result
 
-    except Exception:
+    except Exception as e:
+        print(
+            f"ASK ERROR: {type(e).__name__}: {e}",
+            flush=True,
+        )
+
         raise HTTPException(
             status_code=500,
             detail="An error occurred while processing the question.",
@@ -82,7 +88,12 @@ def clear_conversation(request: ClearRequest):
             "message": "Conversation memory cleared.",
         }
 
-    except Exception:
+    except Exception as e:
+        print(
+            f"CLEAR ERROR: {type(e).__name__}: {e}",
+            flush=True,
+        )
+
         raise HTTPException(
             status_code=500,
             detail="Could not clear conversation memory.",
