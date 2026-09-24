@@ -26,6 +26,11 @@ class AskRequest(BaseModel):
         max_length=1000,
     )
 
+    session_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
 
 class AskResponse(BaseModel):
     answer: str
@@ -45,7 +50,10 @@ def health_check():
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest):
     try:
-        result = run_rag(request.query)
+        result = run_rag(
+            request.query,
+            session_id=request.session_id,
+        )
 
         return result
 

@@ -13,6 +13,12 @@ from app.rag.intent import (
     OUT_OF_SCOPE,
 )
 
+from app.rag.memory import (
+    get_history,
+    add_message,
+)
+
+from app.rag.query_rewriter import rewrite_query
 
 NOT_FOUND_MESSAGE = (
     "I could not find this information in the provided HR policies."
@@ -39,9 +45,11 @@ def create_rag_pipeline():
 
 def ask(
     query,
+    session_id,
     top_k_retrieval=5,
     debug=False,
 ):
+    history = get_history(session_id)
     intent = classify_intent(query)
 
     if debug:
@@ -50,10 +58,26 @@ def ask(
         print("=" * 70)
         print(f"Query  : {query}")
         print(f"Intent : {intent}")
+        print(f"Session: {session_id}")
+        print(f"History messages: {len(history)}")
 
     if intent == GREETING:
+        answer_text = GREETING_MESSAGE
+
+        add_message(
+            session_id,
+            "user",
+            query,
+        )
+
+        add_message(
+            session_id,
+            "assistant",
+            answer_text,
+        )
+
         return {
-            "answer": GREETING_MESSAGE,
+            "answer": answer_text,
             "source": None,
             "retrieval_score": None,
             "evidence": None,
@@ -78,9 +102,19 @@ def ask(
 
     index = create_rag_pipeline()
 
+    search_query = rewrite_query(
+        query,
+        history,
+    )
+
+    if debug:
+        print(
+            f"Search query: {search_query}"
+        )
+
     results = retrieve(
         index,
-        query,
+        search_query,
         top_k=top_k_retrieval,
     )
 
@@ -213,6 +247,18 @@ def ask(
             f"Answer          : "
             f"{answer['answer']}"
         )
+
+    add_message(
+        session_id,
+        "user",
+        query,
+    )
+
+    add_message(
+        session_id,
+        "assistant",
+        answer["answer"],
+    )
 
     return {
         "answer": answer["answer"],
