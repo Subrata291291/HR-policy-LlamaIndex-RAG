@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.rag.pipeline import ask as run_rag
+from app.rag.memory import clear_history
 
 
 app = FastAPI(
@@ -26,6 +27,13 @@ class AskRequest(BaseModel):
         max_length=1000,
     )
 
+    session_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+
+class ClearRequest(BaseModel):
     session_id: str = Field(
         min_length=1,
         max_length=100,
@@ -61,4 +69,21 @@ def ask_question(request: AskRequest):
         raise HTTPException(
             status_code=500,
             detail="An error occurred while processing the question.",
+        )
+
+
+@app.post("/clear")
+def clear_conversation(request: ClearRequest):
+    try:
+        clear_history(request.session_id)
+
+        return {
+            "status": "ok",
+            "message": "Conversation memory cleared.",
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not clear conversation memory.",
         )
